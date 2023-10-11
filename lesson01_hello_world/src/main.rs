@@ -19,7 +19,7 @@ fn main() {
 
     let mood = mood.trim().to_lowercase();
 
-    if mood.eq("great") || mood.eq("cool") {
+    if mood == "great" || mood == "cool" {
         println!("That is great {}!", name);
     } else {
         println!("{}, I hope you will get better.", name);
