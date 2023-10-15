@@ -1,4 +1,5 @@
-use slug::{self, slugify};
+// two own transmutations
+use slug::slugify;
 use std::{env, io};
 
 fn main() {
@@ -14,13 +15,20 @@ fn main() {
 
     println!("Content of args: {:?}", args);
 
-    if args[1] == "lowercase" {
-        println!("{}", input.to_lowercase());
-    } else if args[1] == "uppercase" {
-        println!("{}", input.to_uppercase());
-    } else if args[1] == "no-spaces" {
-        println!("{}", input.replace(" ", ""));
-    } else if args[1] == "slugify" {
-        println!("{}", slugify(&input));
+    //     if args[1] == "lowercase" {
+    //         println!("{}", input.to_lowercase());
+    //     } else if args[1] == "uppercase" {
+    //         println!("{}", input.to_uppercase());
+    //     } else if args[1] == "no-spaces" {
+    //         println!("{}", input.replace(" ", ""));
+    //     } else if args[1] == "slugify" {
+    //         println!("{}", slugify(&input));
+    //     }
+    match args[1].as_str() {
+        "lowercase" => println!("{}", input.to_lowercase()),
+        "uppercase" => println!("{}", input.to_uppercase()),
+        "replace" => println!("{}", input.replace(" ", "")),
+        "slugify" => println!("{}", slugify(&input)),
+        _ => println!("Valid input parameter missing."),
     }
 }
