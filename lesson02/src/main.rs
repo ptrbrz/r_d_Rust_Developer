@@ -1,27 +1,125 @@
-// two own transmutations
 use convert_case::{Case, Casing};
-use slug::slugify;
-use std::{env, io};
+use slug;
+use std::io;
+use std::{env, error::Error};
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-    assert!(args.len() > 1, "No parameter provided");
+fn main() -> Result<(), Box<dyn Error>> {
+    let op_string = env::args().nth(1);
 
-    println!("Enter string:");
-    let mut input = String::new();
+    let output = match op_string.as_deref() {
+        Some("lowercase") => lowercase(),
+        Some("uppercase") => uppercase(),
+        Some("replace") => replace(),
+        Some("slugify") => slugify(),
+        Some("snake") => snake(),
+        Some("camel") => camel(),
+        Some(&_) => Err("ERROR: Operation parameter is not valid".into()),
+        None => Err("ERROR: Missing operation parameter".into()),
+    };
 
-    io::stdin()
-        .read_line(&mut input)
-        .expect("Failed to read line.");
-    let input = input.trim();
-
-    match args.get(1).unwrap().as_str() {
-        "lowercase" => println!("{}", input.to_lowercase()),
-        "uppercase" => println!("{}", input.to_uppercase()),
-        "replace" => println!("{}", input.replace(" ", "")),
-        "slugify" => println!("{}", slugify(input)),
-        "snake" => println!("{}", input.to_case(Case::Snake)),
-        "camel" => println!("{}", input.to_case(Case::Camel)),
-        _ => println!("Invalid parameter.",), // "camel" => println!("{}", input.to_case)
-    }
+    match output {
+        Ok(output) => println!("{}", output),
+        Err(e) => eprintln!("{}", e),
+    };
+    Ok(())
 }
+
+fn get_string() -> Result<String, Box<dyn Error>> {
+    let string = loop {
+        println!("Enter string:");
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        let input = input.trim().to_string();
+        if !input.is_empty() {
+            break input;
+        }
+    };
+    Ok(string)
+}
+
+fn lowercase() -> Result<String, Box<dyn Error>> {
+    let input = get_string()?;
+    Ok(input.to_lowercase())
+}
+
+fn uppercase() -> Result<String, Box<dyn Error>> {
+    let input = get_string()?;
+    Ok(input.to_uppercase())
+}
+
+fn replace() -> Result<String, Box<dyn Error>> {
+    let input = get_string()?;
+    Ok(input.replace(' ', ""))
+}
+
+fn slugify() -> Result<String, Box<dyn Error>> {
+    let input = get_string()?;
+    Ok(slug::slugify(input))
+}
+
+fn snake() -> Result<String, Box<dyn Error>> {
+    let input = get_string()?;
+    Ok(input.to_case(Case::Snake))
+}
+
+fn camel() -> Result<String, Box<dyn Error>> {
+    let input = get_string()?;
+    Ok(input.to_case(Case::Camel))
+} //     todo!();
+  // }
+
+// let operation = match op_string {
+//             Some(action) => match Operation::from_str(&action) {
+//         Ok(op) => op,
+//         Err(e) => return Err(e),
+//     },
+//             None => eprintln!("Error: No operation argument."),
+// }
+// let operation = env::args().nth(1).map_or(Ok(None), |arg| Operation::from_str(&arg).map_or_else(|e| eprintln!(e), |v| v ) );
+// let operation = Operation::from_str(env::args().nth(1).ok_or_else());
+// .and_then(|arg| arg.parse::<Operation>())?;
+// let operation: Result<Operation, ParseOperationError> = env::args().map(|arg| Opertion::from_str(&arg));
+// let operation: Operation = Operation::from_str(&env::args().collect().unwrap()).unwrap();
+// let args: Vec<String> = env::args().collect();
+// assert!(args.len() > 1, "No parameter provided");
+// match operation {
+//     Ok(operation) =>
+
+// }
+// let output_result = match operation.ok() {
+//     Some(Operation::Lowercase) => lowercase(input),
+//     Some(Operation::Uppercase) => uppercase(input),
+//     Some(Operation::Replace) => replace(input),
+//     Some(Operation::Slugify) => slugify(input),
+//     Some(Operation::Snake) => snake(input),
+//     Some(Operation::Camel) => camel(input),
+//     // Some(Operation::Csv) => output_result = csv(input),
+//     _ => Ok(()),
+// };
+
+// enum Operation {
+//        Lowercase,
+//        Uppercase,
+//        Replace,
+//        Slugify,
+//        Snake,
+//        Camel,
+//        Csv,
+//    }
+//    struct ParseOperationError;
+//    impl FromStr for Operation {
+//        type Err = ParseOperationError;
+
+//        fn from_str(action: &str) -> Result<Operation, Self::Err> {
+//            match action {
+//                "lowercase" => Ok(Operation::Lowercase),
+//                "uppercase" => Ok(Operation::Uppercase),
+//                "replace" => Ok(Operation::Replace),
+//                "slugify" => Ok(Operation::Slugify),
+//                "snake" => Ok(Operation::Snake),
+//                "camel" => Ok(Operation::Camel),
+//                // "csv" => Ok(Operation::Csv),
+//                _ => Err(ParseOperationError),
+//            }
+//        }
+//    };
