@@ -1,125 +1,130 @@
 use convert_case::{Case, Casing};
+use csv as crate_csv;
+extern crate prettytable;
+use prettytable::Table;
 use slug;
-use std::io;
-use std::{env, error::Error};
+use std::path::Path;
+use std::str::FromStr;
+use std::sync::mpsc;
+use std::{error::Error, io, thread};
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let op_string = env::args().nth(1);
+fn main() {
+    let (tx, rx) = mpsc::channel();
 
-    let output = match op_string.as_deref() {
-        Some("lowercase") => lowercase(),
-        Some("uppercase") => uppercase(),
-        Some("replace") => replace(),
-        Some("slugify") => slugify(),
-        Some("snake") => snake(),
-        Some("camel") => camel(),
-        Some(&_) => Err("ERROR: Operation parameter is not valid".into()),
-        None => Err("ERROR: Missing operation parameter".into()),
-    };
+    // Input-Recieving thread
+    let input_thread = thread::spawn(move || loop {
+        let (operation, data) = match get_input() {
+            Ok(d) => d,
+            Err(e) => {
+                eprintln!("{}", e);
+                continue;
+            }
+        };
+        tx.send((operation, data)).unwrap();
+    });
 
-    match output {
-        Ok(output) => println!("{}", output),
-        Err(e) => eprintln!("{}", e),
-    };
-    Ok(())
+    // Processing thread
+    let processing_thread = thread::spawn(move || loop {
+        let (parsed_op, data) = rx.recv().unwrap();
+        let output = match parsed_op {
+            Operation::Lowercase => lowercase(data),
+            Operation::Uppercase => uppercase(data),
+            Operation::Replace => replace(data),
+            Operation::Slugify => slugify(data),
+            Operation::Snake => snake(data),
+            Operation::Camel => camel(data),
+            Operation::Csv => csv(data),
+        };
+
+        match output {
+            Ok(output) => println!("{}", output),
+            Err(e) => eprintln!("{}", e),
+        };
+    });
+    input_thread.join().unwrap();
+    processing_thread.join().unwrap();
 }
 
-fn get_string() -> Result<String, Box<dyn Error>> {
-    let string = loop {
-        println!("Enter string:");
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-        let input = input.trim().to_string();
-        if !input.is_empty() {
-            break input;
+#[derive(Debug)]
+enum Operation {
+    Lowercase,
+    Uppercase,
+    Replace,
+    Slugify,
+    Snake,
+    Camel,
+    Csv,
+}
+#[derive(Debug)]
+struct ParseOperationError;
+impl std::fmt::Display for ParseOperationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Error: Invalid command.")
+    }
+}
+impl std::error::Error for ParseOperationError {}
+impl FromStr for Operation {
+    type Err = ParseOperationError;
+
+    fn from_str(action: &str) -> Result<Self, Self::Err> {
+        match action {
+            "lowercase" => Ok(Operation::Lowercase),
+            "uppercase" => Ok(Operation::Uppercase),
+            "replace" => Ok(Operation::Replace),
+            "slugify" => Ok(Operation::Slugify),
+            "snake" => Ok(Operation::Snake),
+            "camel" => Ok(Operation::Camel),
+            "csv" => Ok(Operation::Csv),
+            _ => Err(ParseOperationError),
         }
-    };
-    Ok(string)
+    }
 }
 
-fn lowercase() -> Result<String, Box<dyn Error>> {
-    let input = get_string()?;
-    Ok(input.to_lowercase())
+fn csv(data: String) -> Result<String, Box<dyn Error>> {
+    let mut rdr = crate_csv::Reader::from_path(Path::new(&data))?;
+    let table = Table::from_csv(&mut rdr);
+
+    match table.print_tty(false) {
+        Ok(n) => Ok(format!("{} lines printed", n)),
+        Err(e) => Err(Box::new(e)),
+    }
 }
 
-fn uppercase() -> Result<String, Box<dyn Error>> {
-    let input = get_string()?;
-    Ok(input.to_uppercase())
+fn get_input() -> Result<(Operation, String), Box<dyn Error>> {
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let (op_string, data) = input
+        .trim()
+        .split_once(' ')
+        .ok_or("Error: failed to parse data.")?;
+    // .expect("Need space as delimiter to parse operation string");
+    let op_result = op_string.parse::<Operation>();
+    match op_result {
+        Ok(op) => Ok((op, data.to_string())),
+        Err(err) => Err(err.into()),
+    }
 }
 
-fn replace() -> Result<String, Box<dyn Error>> {
-    let input = get_string()?;
-    Ok(input.replace(' ', ""))
+fn lowercase(data: String) -> Result<String, Box<dyn Error>> {
+    Ok(data.to_lowercase())
 }
 
-fn slugify() -> Result<String, Box<dyn Error>> {
-    let input = get_string()?;
-    Ok(slug::slugify(input))
+fn uppercase(data: String) -> Result<String, Box<dyn Error>> {
+    Ok(data.to_uppercase())
 }
 
-fn snake() -> Result<String, Box<dyn Error>> {
-    let input = get_string()?;
-    Ok(input.to_case(Case::Snake))
+fn replace(data: String) -> Result<String, Box<dyn Error>> {
+    Ok(data.replace(' ', ""))
 }
 
-fn camel() -> Result<String, Box<dyn Error>> {
-    let input = get_string()?;
-    Ok(input.to_case(Case::Camel))
-} //     todo!();
-  // }
+fn slugify(data: String) -> Result<String, Box<dyn Error>> {
+    Ok(slug::slugify(data))
+}
 
-// let operation = match op_string {
-//             Some(action) => match Operation::from_str(&action) {
-//         Ok(op) => op,
-//         Err(e) => return Err(e),
-//     },
-//             None => eprintln!("Error: No operation argument."),
-// }
-// let operation = env::args().nth(1).map_or(Ok(None), |arg| Operation::from_str(&arg).map_or_else(|e| eprintln!(e), |v| v ) );
-// let operation = Operation::from_str(env::args().nth(1).ok_or_else());
-// .and_then(|arg| arg.parse::<Operation>())?;
-// let operation: Result<Operation, ParseOperationError> = env::args().map(|arg| Opertion::from_str(&arg));
-// let operation: Operation = Operation::from_str(&env::args().collect().unwrap()).unwrap();
-// let args: Vec<String> = env::args().collect();
-// assert!(args.len() > 1, "No parameter provided");
-// match operation {
-//     Ok(operation) =>
+fn snake(data: String) -> Result<String, Box<dyn Error>> {
+    Ok(data.to_case(Case::Snake))
+}
 
-// }
-// let output_result = match operation.ok() {
-//     Some(Operation::Lowercase) => lowercase(input),
-//     Some(Operation::Uppercase) => uppercase(input),
-//     Some(Operation::Replace) => replace(input),
-//     Some(Operation::Slugify) => slugify(input),
-//     Some(Operation::Snake) => snake(input),
-//     Some(Operation::Camel) => camel(input),
-//     // Some(Operation::Csv) => output_result = csv(input),
-//     _ => Ok(()),
-// };
-
-// enum Operation {
-//        Lowercase,
-//        Uppercase,
-//        Replace,
-//        Slugify,
-//        Snake,
-//        Camel,
-//        Csv,
-//    }
-//    struct ParseOperationError;
-//    impl FromStr for Operation {
-//        type Err = ParseOperationError;
-
-//        fn from_str(action: &str) -> Result<Operation, Self::Err> {
-//            match action {
-//                "lowercase" => Ok(Operation::Lowercase),
-//                "uppercase" => Ok(Operation::Uppercase),
-//                "replace" => Ok(Operation::Replace),
-//                "slugify" => Ok(Operation::Slugify),
-//                "snake" => Ok(Operation::Snake),
-//                "camel" => Ok(Operation::Camel),
-//                // "csv" => Ok(Operation::Csv),
-//                _ => Err(ParseOperationError),
-//            }
-//        }
-//    };
+fn camel(data: String) -> Result<String, Box<dyn Error>> {
+    Ok(data.to_case(Case::Camel))
+}
