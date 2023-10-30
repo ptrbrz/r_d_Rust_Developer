@@ -1,4 +1,6 @@
 use convert_case::{Case, Casing};
+use csv as crate_csv;
+use prettytable::Table;
 use slug;
 use std::io;
 use std::{env, error::Error};
@@ -13,6 +15,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some("slugify") => slugify(),
         Some("snake") => snake(),
         Some("camel") => camel(),
+        Some("csv") => csv(),
         Some(&_) => Err("ERROR: Operation parameter is not valid".into()),
         None => Err("ERROR: Missing operation parameter".into()),
     };
@@ -35,6 +38,16 @@ fn get_string() -> Result<String, Box<dyn Error>> {
         }
     };
     Ok(string)
+}
+
+fn csv() -> Result<String, Box<dyn Error>> {
+    let mut rdr = crate_csv::Reader::from_reader(io::stdin());
+    let table = Table::from_csv(&mut rdr);
+
+    match table.print_tty(false) {
+        Ok(n) => Ok(format!("{} lines printed", n)),
+        Err(e) => Err(Box::new(e)),
+    }
 }
 
 fn lowercase() -> Result<String, Box<dyn Error>> {
